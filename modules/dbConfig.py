@@ -12,15 +12,15 @@ import os
 # Create the Data folder if it doesn't exist
 os.makedirs('Data', exist_ok=True)
 
-def createDb(contract, timeframe):
+def createDb(symbol, timeframe):
 
     # Define the database file
-    db = SqliteDatabase(f'Data/{contract}db.db')
+    db = SqliteDatabase(f'Data/{symbol}db.db')
 
     # Define the Candlestick model (table)
     class Candlestick(Model):
 
-        symbol = CharField()  # contract="EURUSD"
+        symbol = CharField()  # symbol="EURUSD"
         timeframe = CharField()  # timeframeStr=timeframeMap.get(timeframe, "M15")"M1"
         timestamp = DateTimeField()  # Timestamp of the candlestick
         open = FloatField()  # Open price
@@ -31,19 +31,18 @@ def createDb(contract, timeframe):
 
         class Meta:
             database = db
-            table_name = contract
+            table_name = symbol
 
     db.connect()
     # If Candlestick table does not exist, create one according to Candlestick model
     db.create_tables([Candlestick])
 
-    print(f"---{contract} DATABASE CREATED---")
+    print(f"---{symbol} DATABASE CREATED---")
 
 if __name__=="__main__":
     
-    # Define contract details
-    contract = "CADUSD"
+    # Define symbol details
+    symbol = "CADUSD"
     timeframe = mt5.TIMEFRAME_M15
-    mt5C = MT5Connector(contract, timeframe)
 
-    createDb(mt5C, contract, timeframe)
+    createDb(symbol, timeframe)

@@ -3,11 +3,12 @@ import os
 import MetaTrader5 as mt5
 import pandas as pd
 
+
 class MT5Connector:
 
-    def __init__(self, contract="EURUSD", timeframe=mt5.TIMEFRAME_H1):
+    def __init__(self, symbol="EURUSD", timeframe=mt5.TIMEFRAME_H1):
 
-        self.contract = contract
+        self.symbol = symbol
 
         self.timeframe = timeframe
 
@@ -19,6 +20,9 @@ class MT5Connector:
             mt5.TIMEFRAME_H1: "H1",
             mt5.TIMEFRAME_D1: "D1"
         }
+
+        # Declare member variable for last loaded data frame
+        self.df = None
 
         print("---MT5 DEFAULT VARIABLES CREATED---")
 
@@ -53,14 +57,23 @@ class MT5Connector:
 
             print("---MT5 TERMINATION FAILURE---")
 
-# Example usage:
+    def loadDf(self, df, numCandles: int):
+
+        df = mt5.copy_rates_from_pos(self.symbol, self.timeframe, 0, numCandles)
+
+
+
+# Example usage
 if __name__ == "__main__":
 
     mt5C = MT5Connector()
 
     if mt5C.initialize():
 
+        print("--Load DataFrame")
+
+        mt5C.loadDf(mt5C.df, 10)
+
         # Do something with MT5
         mt5C.terminate()
 
-    df = mt5C.getDataframe()
