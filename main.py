@@ -2,6 +2,7 @@ import os
 import MetaTrader5 as mt5
 from modules.mt5Class import *  # ---Create mt5 Object
 from modules.dbConfig import *  # ---Create DATABASE
+from modules.algo import *      # ---Create algo Object
 
 # Define symbol details
 symbol = "EURUSD"
@@ -21,12 +22,28 @@ def main(symbol="EURUSD", timeframe=mt5.TIMEFRAME_M15):
     # Initialise mt5 Connection
     mt5C.initialize()
 
-    # Create Database
-    createDb(symbol, timeframe)
+    # Create Database & cursor
+    db = createDb(symbol, timeframe)
+    cursor = db.cursor()
 
-    # Populate Database
+    df = mt5C.getCandles(3000)
+
+    cleanDb = input("Clean Database Instance [Y/N] (default: N): ").strip().upper() or "N"
+
+    if cleanDb=="Y":
+
+        Candlestick.delete().execute()
+
+    recordDataFrame(df)
+
+    # Create algo Object
+    algo = Algo(db)
+
+    algo.runStrat(2)
+
 
     mt5C.terminate()
+    db.commit()
 
 
 

@@ -3,7 +3,7 @@ import os
 import MetaTrader5 as mt5
 import pandas as pd
 
-
+# V1.0
 class MT5Connector:
 
     def __init__(self, symbol="EURUSD", timeframe=mt5.TIMEFRAME_H1):
@@ -57,11 +57,22 @@ class MT5Connector:
 
             print("---MT5 TERMINATION FAILURE---")
 
-    def loadDf(self, df, numCandles: int):
+    def getCandles(self, n):
 
-        df = mt5.copy_rates_from_pos(self.symbol, self.timeframe, 0, numCandles)
+        # Get the latest `n` candles
+        rates = mt5.copy_rates_from_pos(self.symbol, self.timeframe, 0, n)
 
+        if rates is None:
 
+            print(f"Failed to fetch candles for {self.symbol}. Error:", mt5.last_error())
+            return None
+
+        # Convert to a Pandas DataFrame for easier processing
+        cFrame = pd.DataFrame(rates)
+        cFrame.drop('real_volume', axis=1, inplace=True)
+        cFrame['time'] = pd.to_datetime(cFrame['time'], unit='s')
+        cFrame.rename(columns={'time': 'timestamp', 'tick_volume': 'volume'}, inplace=True)
+        return cFrame
 
 # Example usage
 if __name__ == "__main__":
@@ -72,7 +83,7 @@ if __name__ == "__main__":
 
         print("--Load DataFrame")
 
-        mt5C.loadDf(mt5C.df, 10)
+        print(mt5C.getCandles(50))
 
         # Do something with MT5
         mt5C.terminate()

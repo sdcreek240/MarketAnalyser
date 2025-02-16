@@ -1,48 +1,88 @@
-# Import functions for MT5 connection
+# Import libraries
 import MetaTrader5 as mt5
 import pandas as pd
-from datetime import datetime as dt
-import sqlite3
-from peewee import * # ORM
-
-# Initialize connection to mt5 servers
+from datetime import datetime
 import os
-# from mt5Class import *
+from peewee import *
 
 # Create the Data folder if it doesn't exist
 os.makedirs('Data', exist_ok=True)
 
-def createDb(symbol, timeframe):
+# Initialize the database globally
+db = None
 
-    # Define the database file
+class Candlestick(Model):
+    timestamp = DateTimeField(primary_key=True)
+    date = DateField(constraints=[SQL("DEFAULT (DATE(timestamp))")])  # SQL - Extracts date from timestamp
+    time = TimeField(constraints=[SQL("DEFAULT (TIME(timestamp))")])  # SQL - Extracts time from timestamp
+    open = FloatField()
+    high = FloatField()
+    low = FloatField()
+    close = FloatField()
+    volume = IntegerField()
+
+    class Meta:
+        database = db  # This will be assigned dynamically
+
+def createDb(symbol, timeframe):
+    global db
     db = SqliteDatabase(f'Data/{symbol}db.db')
 
-    # Define the Candlestick model (table)
-    class Candlestick(Model):
+    # Dynamically set the table name
+    class Meta:
+        database = db
+        table_name = f"{symbol}_{timeframe}"
 
-        symbol = CharField()  # symbol="EURUSD"
-        timeframe = CharField()  # timeframeStr=timeframeMap.get(timeframe, "M15")"M1"
-        timestamp = DateTimeField()  # Timestamp of the candlestick
-        open = FloatField()  # Open price
-        high = FloatField()  # High price
-        low = FloatField()  # Low price
-        close = FloatField()  # Close price
-        volume = IntegerField()  # Volume
-
-        class Meta:
-            database = db
-            table_name = symbol
+    Candlestick._meta.database = db  # Assign database to model
+    Candlestick._meta.table_name = f"{symbol}_{timeframe}"  # Assign table name
 
     db.connect()
-    # If Candlestick table does not exist, create one according to Candlestick model
-    db.create_tables([Candlestick])
+    db.create_tables([Candlestick], safe=True)
 
     print(f"---{symbol} DATABASE CREATED---")
+    return db
 
-if __name__=="__main__":
-    
-    # Define symbol details
+def cndlExists(timestamp):
+
+    return Candlestick.select().where(Candlestick.timestamp==timestamp).exists()
+
+def recordDataFrame(df):
+
+    iRec = df.shape[0] # Num records recieved
+    iDup = 0 # Num duplicates found
+
+    bLoadingBar = (iRec>=1000)
+    if bLoadingBar: print(f"---DATAFRAME_LOADING [", end="")
+
+    for _, row in df.iterrows():
+
+        if (bLoadingBar) and (_%1000==0): print("=", end="", flush=True)
+
+        timestamp = row['timestamp'].to_pydatetime()
+
+        if not (cndlExists(timestamp)):
+
+            Candlestick.create(
+                timestamp=timestamp,
+                date=timestamp.date(),  # Extract date from timestamp
+                time=timestamp.time(),  # Extract time from timestamp
+                open=row['open'],
+                high=row['high'],
+                low=row['low'],
+                close=row['close'],
+                volume=row['volume']
+            )
+
+        else: iDup += 1
+
+    print("]---")
+
+    if (iDup!=0):
+        print(f"---DUPLICATES FOUND [{iDup}] | RECORDS RECIEVED [{iRec}]")
+    else: print(f"---RECORDS_ADDED: [{iRec}]---")
+
+
+if __name__ == "__main__":
     symbol = "CADUSD"
     timeframe = mt5.TIMEFRAME_M15
-
     createDb(symbol, timeframe)
